@@ -1,0 +1,72 @@
+ERROR : fixcalc cannot be found!!
+
+!!! **src/tpdispatcher.ml#493:init_tp by default: 
+!!! **src/tpdispatcher.ml#392:set_tp z3
+!!!Full processing file "errors/ll_all2a.ss"
+Parsing file "errors/ll_all2a.ss" by default parser...
+
+
+!!! processing primitives "["prelude.ss"]
+
+Starting z3... 
+
+!!! **WARNING****src/astsimp.ml#9340:Post-condition has existentially quantified free vars, error position: /home/liwenhua/hipsleek_stable/_build/default/prelude.ss_613:10_613:25:[(q,)]
+!!! **WARNING****src/astsimp.ml#9340:Post-condition has existentially quantified free vars, error position: /home/liwenhua/hipsleek_stable/_build/default/prelude.ss_608:22_608:39:[(p,)]
+Starting Omega...
+
+!!!WARNING : uninterpreted free variables [l,h] in specification.
+!!! **src/typechecker.ml#3650:start check_proc:[x,y]
+Checking procedure append$node~node...
+
+!!! **src/typechecker.ml#2233:Dprint:[x,y]
+dprint(simpl): errors/ll_all2a.ss:54: ctx:  List of Failesc Context: [FEC(0, 0, 1  [(,1 ); (,2 )])]
+ Successful States:
+ [
+  Label: [(,1 ); (,2 )]
+  State:
+     (exists v_node_53_1969',
+flted_45_2012: x::node<Anon_1999,q_2000>@M * 
+               v_node_53_1969'::ls<flted_45_2012>@M&
+flted_45_2012=null & y'=y & x'=x & x!=null&{FLOW,(4,5)=__norm#E}[])
+    es_gen_impl_vars(E): []
+    es_heap(consumed): emp
+    es_pure: flted_44_1980=null & y_1998=null
+    es_subst (from,to): []:[]
+    es_cond_path: [2; 0]
+    es_var_measures 1: Some(MayLoop[]{})
+    
+  Exc:None
+  ]
+
+Post condition cannot be derived:
+(may) cause: [  (must) cause:  x'!=null & x'!=null & x'!=null |-  x'=null. LOCS:[44;43;49;12;45] (must-bug),valid]
+
+Context of Verification Failure: errors/ll_all2a.ss_45:10_45:22
+
+Last Proving Location: errors/ll_all2a.ss_53:7_53:24
+
+ERROR: at errors/ll_all2a.ss_45:10_45:22
+Message: Post condition cannot be derived.
+
+Procedure append$node~node FAIL.(2)
+
+
+Exception Failure("Post condition cannot be derived.") Occurred!
+
+
+Error(s) detected when checking procedure append$node~node
+
+!!! **src/typechecker.ml#3650:start check_proc:[x,y]
+Checking procedure append3$node~node...
+
+Procedure append3$node~node SUCCESS.
+
+Stop z3... 331 invocations 
+Stop Omega... 130 invocations 
+0 false contexts at: ()
+
+!!! log(small):(0.525709,1251)
+Total verification time: 1.005405 second(s)
+	Time spent in main process: 0.824477 second(s)
+	Time spent in child processes: 0.180928 second(s)
+	Z3 Prover Time: 0.021139 second(s)
