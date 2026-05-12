@@ -5735,6 +5735,62 @@ and trans_exp_x (prog : I.prog_decl) (proc : I.proc_decl) (ie : I.exp) : trans_e
              if List.exists2 (fun t1 t2 -> not (sub_type t1 t2)) cts parg_types then
                Err.report_error { Err.error_loc = pos; Err.error_text = "argument types do not match 3"; }
              else if Inliner.is_inlined mn then (let inlined_exp = Inliner.inline prog pdef ie in helper inlined_exp)
+             else if
+               (* Rewrite ref field-access args (e.g. append(x.next,y)) into explicit bind *)
+               (try List.exists2 (fun param arg ->
+                   param.I.param_mod = I.RefMod &&
+                   (match arg with
+                    | I.Member { I.exp_member_base = I.Var _; I.exp_member_fields = [_]; _ } -> true
+                    | _ -> false))
+                 proc_args args
+               with Invalid_argument _ -> false)
+             then
+               let wrappers = ref [] in
+               let new_args = List.map2 (fun param arg ->
+                   match param.I.param_mod, arg with
+                   | I.RefMod, I.Member {
+                       I.exp_member_base = I.Var { I.exp_var_name = base_v; _ };
+                       I.exp_member_fields = [field_name];
+                       I.exp_member_path_id = fpid;
+                       I.exp_member_pos = fpos } ->
+                     (try
+                        let vinfo = E.look_up base_v in
+                        (match vinfo with
+                         | E.VarInfo vi ->
+                           (match vi.E.var_type with
+                            | Named c ->
+                              let ddef = I.look_up_data_def 5 fpos prog.I.prog_data_decls c in
+                              let fnames = List.map I.get_field_name ddef.I.data_fields in
+                              let line = fpos.start_pos.Lexing.pos_lnum in
+                              let fresh = List.map (fun fn -> fresh_var_name fn line) fnames in
+                              (try
+                                 let fresh_target =
+                                   List.assoc field_name (List.combine fnames fresh) in
+                                 wrappers := (fun call_e ->
+                                     I.Bind {
+                                       I.exp_bind_bound_var = base_v;
+                                       I.exp_bind_fields = fresh;
+                                       I.exp_bind_body = call_e;
+                                       I.exp_bind_path_id = fpid;
+                                       I.exp_bind_pos = fpos;
+                                     }) :: !wrappers;
+                                 I.Var { I.exp_var_name = fresh_target; I.exp_var_pos = fpos }
+                               with Not_found -> arg)
+                            | _ -> arg)
+                         | _ -> arg)
+                      with Not_found -> arg)
+                   | _ -> arg)
+                 proc_args args in
+               let new_call = I.CallNRecv {
+                 I.exp_call_nrecv_method = mn;
+                 I.exp_call_nrecv_lock = lock;
+                 I.exp_call_nrecv_arguments = new_args;
+                 I.exp_call_nrecv_ho_arg = ho_arg;
+                 I.exp_call_nrecv_path_id = pi;
+                 I.exp_call_nrecv_pos = pos;
+               } in
+               let wrapped = List.fold_right (fun w e -> w e) !wrappers new_call in
+               helper wrapped
              else
                let _ = Debug.ninfo_hprint (add_str "length proc_decl.I.proc_args" (string_of_int)) (List.length proc_decl.I.proc_args) no_pos in
                (let ret_ct = x_add trans_type prog pdef.I.proc_return pdef.I.proc_loc in

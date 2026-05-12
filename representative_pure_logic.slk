@@ -1,0 +1,179 @@
+// ============================================================
+// REPRESENTATIVE PURE LOGIC EXAMPLES FOR SLEEK
+// Source: selected from the hipsleek_stable test suite
+// These examples contain NO heap predicates (no x::pred<...>)
+// and test pure arithmetic, relational, set, and label reasoning.
+// ============================================================
+
+
+// ------------------------------------------------------------
+// Section 1: Basic Arithmetic Entailment
+// Source: test_proof/ineq1.slk, test_proof/ann.slk
+// ------------------------------------------------------------
+
+// (1a) Equality transitivity detects contradiction
+checkentail x!=y & x=b & b=y |- false.
+
+// (1b) Self-inequality is immediately false
+checkentail x!=x |- false.
+
+// (1c) Direct contradiction via equality
+checkentail x!=y & x=y |- false.
+
+// (1d) Transitive inequality reasoning
+checkentail x!=y & x=y & x=a |- false.
+
+// (1e) Simple arithmetic chain
+checkentail t=1 & x>t & t>y |- x>0.
+checkentail t=1 & x>t & t>y |- y<1.
+
+
+// ------------------------------------------------------------
+// Section 2: Arithmetic Constraint Inference
+// Source: validate/infer10.slk, validate/ex3a-enum.slk
+// ------------------------------------------------------------
+
+// (2a) Infer lower bound for n from n>0 & n>m |- n>k
+infer [n] n>0 & n>m |- n>2.
+print residue.
+
+infer [n] n>0 & n>m |- n>3.
+print residue.
+
+infer [n] n>0 & n>m |- n>4.
+print residue.
+
+infer [n] n>0 & n>m |- n>5.
+print residue.
+
+// (2b) Infer n from stronger RHS with offset
+infer [n] n>0 & n>m |- n>3.
+print residue.
+
+infer [n] n>0 & n>m & m>4 |- n>8.
+print residue.
+
+// (2c) Infer when LHS implies falsity of RHS
+infer [n] n>0 & n>m |- false.
+print residue.
+
+infer [n,m] n>0 & n>m |- false.
+print residue.
+
+// (2d) Disjunctive LHS inference
+infer [n] n=0 or n!=0 |- n>=0 or n!=0.
+print residue.
+
+// (2e) Infer n=0 from null base case
+infer [n] n=1 & y=null |- n=0.
+print residue.
+
+// (2f) Infer with pure arithmetic only (no heap)
+infer [p] m>2 |- p>m & m>4.
+print residue.
+
+infer [m] m>2 |- p>m & m>4.
+print residue.
+
+infer [p,m] m>2 |- p>m & m>4.
+print residue.
+
+
+// ------------------------------------------------------------
+// Section 3: Relational Predicate Inference
+// Source: pre-app-3.slk, norm/aux23-gfp.slk
+// ------------------------------------------------------------
+
+// (3a) Infer a relational predicate P2
+relation P(int s1, int s2, int l1, int l2).
+relation P2(int s2, int l1, int l2).
+relation Q(int s1, int s2, int l1, int l2).
+
+infer [l1,s2,P2] s1<=l1 |- s1<=s2 & P2(l1,s2,l2).
+print residue.
+
+infer [l1,s2,P2] s1<=l1 & l1<=s2 |- s1<=s2 & P2(l1,s2,l2).
+print residue.
+
+// (3b) Greatest fix-point relation inference
+relation R(int i).
+relAssume R(i) & i=1+v & (v+1)!=0 --> R(v).
+relAssume R(i) --> i!=0.
+relation_infer [R][].
+
+
+// ------------------------------------------------------------
+// Section 4: Set Reasoning
+// Source: label/lab2.slk
+// ------------------------------------------------------------
+
+// (4a) Non-emptiness of a singleton set
+checkentail S={x} |- S!={}.
+print residue.
+
+
+// ------------------------------------------------------------
+// Section 5: Label / Annotation Reasoning
+// Source: label/lab1.slk, label/lab2.slk
+// ------------------------------------------------------------
+
+// (5a) Entailment with labeled constraints
+checkentail n>=0 & n>0 |- (n>=-1) & ["n":n>=0; "x":n>=0].
+print residue.
+
+// (5b) Termination annotation
+checkentail MayLoop & ["n":n>0; "s":n=0] |- Term.
+print residue.
+
+// (5c) Simple arithmetic with label on RHS
+checkentail n>=0 & n>0 |- (n>=-1) & n>=0.
+print residue.
+
+
+// ------------------------------------------------------------
+// Section 6: HeapPred (abstract heap predicate) Inference
+// Source: incr/ex10b-classic-base-case.slk, incr/ex10a1-post-true.slk
+// ------------------------------------------------------------
+
+data node {
+  int val;
+  node next;
+}.
+
+HeapPred H(node a).
+
+// (6a) Infer H when null; residue should contain H(p)
+infer_exact [H] H(p) & p=null |- emp.
+print residue.
+expect Valid.
+
+infer [H] H(p) & p=null |- emp.
+print residue.
+expect Valid.
+
+infer [] H(p) & p=null |- emp.
+print residue.
+expect Valid.
+
+infer_exact [] H(p) & p=null |- emp.
+print residue.
+expect Fail.
+
+// (6b) Infer H with true on RHS
+infer [H] H(x) & x=null |- true.
+print residue.
+
+
+// ------------------------------------------------------------
+// Section 7: Infinity Values
+// Source: infinity/inv4b.slk
+// ------------------------------------------------------------
+
+// (7a) min/max with infinity: mi=d but mi=mx is not directly provable
+checkentail
+  mi=min(d,\inf)
+  & mx=max(d,-\inf)
+  & -\inf<d<\inf
+|-
+  mi=mx
+.

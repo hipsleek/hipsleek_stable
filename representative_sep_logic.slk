@@ -1,0 +1,474 @@
+// ============================================================
+// REPRESENTATIVE SEPARATION LOGIC EXAMPLES FOR SLEEK
+// Source: selected from the hipsleek_stable test suite
+// These examples use heap predicates (x::pred<...>) and
+// test separation logic entailment, lemmas, and inference.
+// ============================================================
+
+
+// ============================================================
+// PART 1: Basic Heap Formulas (htrue, emp, single nodes)
+// Source: demo/classic1.slk, demo/classic2.slk, demo/classic3.slk
+// ============================================================
+
+data node {
+  int val;
+  node next;
+}.
+
+// (1a) Exact-frame entailments between htrue and emp
+checkentail htrue |- emp.
+print residue.
+
+checkentail htrue |- htrue.
+print residue.
+
+checkentail emp |- emp.
+print residue.
+
+checkentail emp |- htrue.
+print residue.
+
+// (1b) Single node vs htrue/emp
+checkentail x::node<_,_> |- emp.
+print residue.
+
+checkentail x::node<_,_> |- htrue.
+print residue.
+
+checkentail htrue |- x::node<_,_>.
+print residue.
+
+checkentail emp |- x::node<_,_>.
+print residue.
+
+// (1c) Checkentail_exact variants (no frame allowed)
+checkentail_exact x::node<_,_> |- htrue.
+print residue.
+
+checkentail_exact x::node<_,_> |- emp.
+print residue.
+
+// (1d) Field aliasing
+checkentail x::node<a,b> |- x::node<_,_>.
+print residue.
+
+checkentail x::node<a,b> |- x::node<b,_>.
+print residue.
+
+checkentail x::node<a,b> |- x::node<a,c>.
+print residue.
+
+
+// ============================================================
+// PART 2: Singly-Linked List Without Size
+// Source: tut/ex1/ex32-ll.slk
+// ============================================================
+
+pred ll<> == emp & self=null
+  or self::node<_,q>*q::ll<>
+  inv true.
+
+// (2a) Null base case
+checkentail x=null |- x::ll<>.
+
+// (2b) Folding into ll
+checkentail x::node<1,qq>*q::ll<> |- x::ll<>.
+
+// (2c) Single-node list
+checkentail x::node<1,null> |- x::ll<>.
+
+// (2d) Two-node list
+checkentail x::node<1,q>*q::node<2,null> |- x::ll<>.
+
+// (2e) Cannot derive node from arbitrary ll
+checkentail x::ll<> |- x::node<a,b>.
+
+// (2f) Must fail: null node cannot be unfolded
+checkentail x::ll<> & x=null |- x::node<a,b>.
+
+// (2g) Non-null unfolding
+checkentail x::ll<> & x!=null |- x::node<a,b>.
+print residue.
+
+
+// ============================================================
+// PART 3: Singly-Linked List With Size
+// Source: tut/ex1/ex33-ll-size.slk, validate/sleek2.slk
+// ============================================================
+
+pred ll<n> == emp & self=null & n=0
+  or (exists v,q: self::node<v,q>*q::ll<n-1>)
+  inv n>=0.
+
+// (3a) Null implies ll<n> with anonymous n
+checkentail x=null |- (exists n: x::ll<n>).
+print residue.
+
+checkentail x=null |- x::ll<_>.
+print residue.
+
+// (3b) Three-node list folds to ll<3>
+checkentail x::node<_,q>*q::node<_,q2>*q2::node<_,null>
+     |- x::ll<n>.
+print residue.
+
+// (3c) Chain entails ll with size bound
+checkentail x::node<_,q>*q::node<_,q2>*q2::node<_,null> |- x::ll<n> & n>2.
+
+// (3d) Node prepended to ll extends size by one
+checkentail x::node<_,q>*q::ll<m> |- x::ll<n>.
+print residue.
+
+// (3e) Unfolding when n>4
+checkentail x::ll<n> & n>4 |- x::node<a,b>.
+print residue.
+
+// (3f) Invariant: length non-negative
+checkentail x::ll<n> |- n>=0.
+
+// (3g) Null test from length bound
+checkentail x::ll<n> & n<1 |- x=null.
+
+// (3h) Two-node check from ll
+checkentail x::node<_, null> * z::node<_,_> * y::ll<_> & m = 1 |- x::ll<m>.
+print residue.
+
+
+// ============================================================
+// PART 4: Linked List With Set Content
+// Source: tut/ex1/ex34-ll-set.slk
+// ============================================================
+
+pred llSet<S> == emp & self=null & S={}
+  or self::node<v,q>*q::llSet<S1> & S=union({v},S1)
+  inv true.
+
+// (4a) Empty list
+checkentail x=null |- x::llSet<S>.
+print residue.
+
+// (4b) Two-node list content
+checkentail x::node<a,q>*q::node<b,null>
+     |- x::llSet<S>.
+print residue.
+
+// (4c) Check specific content
+checkentail x::node<a,q>*q::node<b,null>
+     |- x::llSet<S> & S={b,a}.
+print residue.
+
+// (4d) Content too small — expect Fail
+checkentail x::node<a,q>*q::node<b,null>
+     |- x::llSet<S> & S={b}.
+print residue.
+
+// (4e) Non-empty set implies node exists
+checkentail x::llSet<S> & S!={} |- x::node<_,q>.
+print residue.
+
+// (4f) Two-element set implies two nodes
+checkentail x::llSet<S> & S={a,b} & a!=b |- x::node<_,q1>*q1::node<_,q2>.
+
+
+// ============================================================
+// PART 5: List Segments and Circular Lists
+// Source: examples/non-rec.slk, tut/ex1/ex39-lseg-lemma.slk
+// ============================================================
+
+pred lseg<n,p> == emp & self=p & n=0
+  or self::node<_,q>*q::lseg<n-1,p>
+  inv n>=0.
+
+pred clist<n> == self::node<_,q> * q::lseg<n-1,self>
+  inv n>0.
+
+// (5a) Single node is a length-1 segment
+checkentail self::node<_,p> |- self::lseg2<p,n>.
+print residue.
+
+// (5b) Circular list unfolding
+checkentail x::clist<n> & n=1 |- x::node<_,r> * r::lseg<0,x>.
+print residue.
+
+checkentail x::clist<n> & n=1 |- (exists r : x::node<_,r> * r::lseg<0,x>).
+print residue.
+
+checkentail x::clist<n> & n>2 |- x::clist<d>.
+print residue.
+
+checkentail x::clist<n> & n>2 |- x::clist<d> & d>1.
+print residue.
+
+checkentail x::clist<n> & n>2 |- x::node<_,r>*r::lseg<c,x> & d=c+1.
+print residue.
+
+
+// ============================================================
+// PART 6: Lemmas — Combination and Split
+// Source: tut/ex1/ex39-lseg-lemma.slk, tut/ex1/ex40-lseg-lemma.slk
+// ============================================================
+
+pred ls_nt<n,p> == emp & self=p & n=0
+  or self::node<_,q>*q::ls_nt<n-1,p> & self!=p
+  inv n>=0.
+
+lemma_safe "lseg-combine" self::lseg<n,p> <-
+         self::lseg<a,q>*q::lseg<b,p> & n=a+b.
+
+lemma_safe "ls_nt_combine" self::ls_nt<n,p> <-
+         self::ls_nt<a,q>*q::ls_nt<b,p> * p::node<_,_>@L & n=a+b.
+
+lemma_safe "lseg-split" self::lseg<n,p> & n=a+b & a,b>=0 ->
+         self::lseg<a,q>*q::lseg<b,p>.
+
+lemma_safe "ls_nt-split" self::ls_nt<n,p> & n=a+b & a,b>=0 ->
+         self::ls_nt<a,q>*q::ls_nt<b,p>.
+
+// (6a) Split lseg
+checkentail x::lseg<n,y> & n=5 |- x::lseg<a,q>*q::lseg<b,y> & b>3.
+print residue.
+
+// (6b) Combine two lsegs
+checkentail x::lseg<a,q> * q::lseg<b,y> & b>2 |- x::lseg<n,y>.
+print residue.
+
+checkentail x::lseg<a,q> * q::lseg<b,y> & b>2 |- x::lseg<n,z>.
+print residue.
+
+// (6c) Combine with stronger bound
+checkentail x::lseg<a,q> * q::lseg<b,y> & b>2 |- x::lseg<n,y> & n>3.
+print residue.
+
+
+// ============================================================
+// PART 7: Sorted List Lemma
+// Source: tut/ex1/ex38-lemma-sort.slk, examples/test3.slk
+// ============================================================
+
+pred sortl<n, mi> == self = null & n = 0
+  or self::node<mi, r> * r::sortl<n - 1, k> & mi <= k
+  inv n >= 0.
+
+pred lsort<S> == emp & self=null & S={}
+  or self::node<v,q>*q::lsort<S1> & S=union({v},S1)
+          & forall (w:(w notin S1| v<=w))
+  inv true.
+
+lemma self::sortl<n, mi> -> self::ll<n>.
+
+lemma_safe "lsort2ll" self::lsort<S> -> self::llSet<S>.
+
+// (7a) Sorted list implies plain list
+checkentail x::sortl<a, b> |- x::ll<a>.
+print residue.
+
+checkentail x::sortl<13, _> |- x::ll<n> & n > 11.
+print residue.
+
+checkentail x::sortl<13, _> |- x::ll<n> & n > 15.
+
+// (7b) Sorted list implies set-valued list
+checkentail x::lsort<S> |- x::llSet<S2>.
+print residue.
+
+checkentail x::lsort<S> & S!={} |- x::node<a,q> * q::llSet<S2>.
+print residue.
+
+// (7c) Reverse — set list does not imply sorted
+checkentail x::llSet<S2> |- x::lsort<S2>.
+
+
+// ============================================================
+// PART 8: Bidirectional Lemma and Reverse Segment
+// Source: tut/ex1/ex50-lseg-rev-lemma.slk, ex53-complex-lemma.slk
+// ============================================================
+
+pred lseg_rev<n, p> ==
+ case {
+  n=0 -> [] emp & self = p & n = 0;
+  n!=0 -> [] self::lseg_rev<n-1,q>*q::node<_,p>;
+ } inv n >= 0.
+
+pred lseg_case<n,p> ==
+ case {
+  n=0 -> [] emp & self = p & n = 0;
+  n!=0 -> [] self::node<_, q> * q::lseg_case<n - 1, p>;
+ } inv n >= 0.
+
+lemma_safe "lseg-lseg-rev" self::lseg_case<n,p> <-> self::lseg_rev<n,p>.
+
+lemma_unsafe "lseg-rev-transformation"
+    self::node<_,q>*q::lseg_rev<n,p>
+        <- self::lseg_rev<n,r> * r::node<_,p>.
+
+// (8a) Reverse segment with n>0
+checkentail x::lseg_rev<n,p> & n>0 |- x::node<_,q>.
+print residue.
+
+// (8b) Reverse segment without bound (may fail)
+checkentail x::lseg_rev<n,p> |- x::node<_,q>.
+print residue.
+
+// (8c) Forward/backward conversion
+checkentail x::node<_,q>*q::lseg_rev<n,p> |- x::lseg_rev<m,p>.
+
+
+// ============================================================
+// PART 9: Fractional Permissions
+// Source: misc/ll_frac.slk
+// ============================================================
+
+pred lf<n,f> == (self = null & n=0 & 0.0<f<=1.0)
+  or self::node<next = r> * r::lf<n - 1,f>
+  inv n >= 0 & 0.0<f<=1.0.
+
+// (9a) Anonymous fraction
+checkentail x::lf<n,f> |- x::lf<_,g>.
+print residue.
+
+// (9b) Full permission implies positive fraction
+checkentail x::lf<n,f> & f=1.0 |- x::lf<_,g> & g>0.0.
+
+checkentail x::lf<n,f> & f=1.0 |- x::lf<_,g> & 0.0<g<=1.0.
+
+checkentail x::lf<n,f> & f=1.0 |- x::lf<_,g> & g=1.0.
+
+// (9c) Fractional range preserved
+checkentail x::lf<n,f> & 0.0<f<=1.0 |- x::lf<_,g> & 0.0<g<=1.0.
+
+
+// ============================================================
+// PART 10: Immutable / Permission Annotations
+// Source: tut/ex1/ex37-ll-imm.slk
+// ============================================================
+
+// (10a) Read-only @L permission on result
+checkentail x::ll<n> & n>0 |- x::node<_,q>@L.
+print residue.
+
+// (10b) Prepend then check @L on whole list
+checkentail x::node<1,q>*q::ll<n> & n>0 |- x::ll<m>@L & m>1.
+print residue.
+
+// (10c) @M (mutable) on result
+checkentail x::node<1,q>*q::ll<n> & n>0 |- x::ll<m>@M & m>1.
+print residue.
+
+// (10d) @L into @M — should fail
+checkentail x::ll<n>@L & n>2 |- x::ll<m>@M & m>1.
+
+// (10e) @L into @L with frame
+checkentail x::ll<n>@L & n>2 |- x::ll<m>@L & m>1.
+print residue.
+
+
+// ============================================================
+// PART 11: Heap Predicate Inference
+// Source: validate/infer10.slk
+// ============================================================
+
+pred ll_na<na> == self = null & na = 0
+  or self::node<_, q> * q::ll_na<na-1>
+  inv na >= 0.
+
+// (11a) Infer n and y for node at tail
+infer [y,n] y::ll_na<n> |- y::node<_,null>.
+print residue.
+
+// (11b) Infer only n
+infer [n] y::ll_na<n> |- y::node<_,null>.
+print residue.
+
+// (11c) Infer n from non-null node
+infer [n] y::ll_na<n> |- y::node<_,b>.
+print residue.
+
+// (11d) Infer n=0 from null
+infer [n] y=null |- y::ll_na<n>.
+print residue.
+
+// (11e) Contradiction: n=1 with null
+infer [n] n=1 & y=null |- y::ll_na<n>.
+print residue.
+
+// (11f) Infer field value from node constraint
+infer [p] x::node<p,q> & m>2 |- x::node<a,b> & a>m.
+print residue.
+
+
+// ============================================================
+// PART 12: Linked List Variations (size, min/max bounds)
+// Source: examples/wn3.slk
+// ============================================================
+
+pred llb<n,u,sm,lg> == self=null & n=0 & sm<=lg & u=1
+  or self::node<v, null> & n=1 & sm<=v<=lg & u=1
+  or self::node<v, q> * q::llb<n-1,_,sm,lg> & q!=null & sm<=v<=lg & u=1
+  inv n>=0 & sm<=lg.
+
+// (12a) Prepend within bounds and fold
+checkentail x::node<w,q>*q::llb<a,b,sm,lg> & sm<=w<=lg & q!=null
+  |- x::llb<c,d,s2,l2>.
+print residue.
+
+
+// ============================================================
+// PART 13: Simple Cell and Composed Predicates
+// Source: examples/wn2.slk, examples/non-rec.slk
+// ============================================================
+
+data cell {
+  int val;
+}.
+
+// (13a) Cell entailment with anonymous content
+checkentail x::cell<2> |- x::cell<n>.
+print residue.
+
+
+// ============================================================
+// PART 14: Lemma for List Segment Combination
+// Source: misc/proof-lseg2.slk
+// ============================================================
+
+pred lseg2<p, n> == self=p & n=0
+  or self::node<_, r> * r::lseg2<p, n-1>
+  inv n>=0.
+
+lemma "lseg2" self::lseg2<p, n>
+<- self::lseg2<q, n1> * q::lseg2<p, n2> & n=n1+n2.
+
+// (14a) One-step segment
+checkentail self::node<_,p> |- self::lseg2<p,n>.
+print residue.
+
+// (14b) Application of lemma
+checkentail x::lseg2<q, n1> * q::lseg2<p, n2> & n=n1+n2
+|- x::lseg2<p, n>.
+
+// (14c) Inductive case after one unfold
+checkentail
+    x::lseg2<p, n2> & n=n1+n2 & n1=0
+ or x::node<_, r> * r::lseg2<q, n1-1> * q::lseg2<p, n2> & n=n1+n2
+|- x::lseg2<p, n>.
+print residue.
+
+
+// ============================================================
+// PART 15: Doubly-Linked List Label Example
+// Source: label/m-2.slk
+// ============================================================
+
+data node2 {
+  int val;
+  node2 next;
+}.
+
+pred dll<"n":n> ==
+  self = null & ["n":n = 0] or
+  self::node2<_ , q> * q::dll<n1> & ["n":n1=n-1]
+  inv true & ["n":n >= 0].
+
+// (15a) Non-null dll implies positive length
+checkentail x::dll<m> & x!=null |- true & ["n":m>0].

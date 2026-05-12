@@ -11,7 +11,7 @@ checkentail n = 1 |- n > 5 or n<0 .
 
 checkentail n > 1 |- n > 5 or n<0 .
 
-checkentail n > 1 |- n<-5 or n<0 .
+checkentail n > 1 |- n <- 5 or n<0 .
 
 /*
 
