@@ -10787,7 +10787,13 @@ and do_match_x prog estate l_node r_node rhs (rhs_matched_set:CP.spec_var list) 
   let (rl, param_ann_lhs, param_ann_rhs, param_ann_rhs_ex) =
     if (!allow_field_ann) then
       x_add (subtype_ann_list ~rhs:rhs_for_imm_inst ~lhs:estate.es_formula) es_impl_vars es_evars l_param_ann r_param_ann
-    else (true, [], [], [])
+    else
+      (* Even without full field-ann inference, check constant annotation compatibility.
+         This ensures e.g. x::node<_@A> |- x::node<_@M> correctly returns Fail
+         (since @A is not a subtype of @M in the ordering M <: I <: L <: A). *)
+      let rl = try List.for_all2 (fun la ra -> Immutable.subtype_ann 10 la ra) l_param_ann r_param_ann
+               with Invalid_argument _ -> true in
+      (rl, [], [], [])
   in
   x_tinfo_hp (add_str "param_ann_lhs" (pr_list ( Cprinter.string_of_pure_formula))) param_ann_lhs pos;
   x_tinfo_hp (add_str "param_ann_rhs" (pr_list ( Cprinter.string_of_pure_formula))) param_ann_rhs pos;
