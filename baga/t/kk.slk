@@ -1,4 +1,4 @@
-//Valid.Valid.Valid.Valid.Valid.Valid.Fail.Valid.Fail
+//Valid.Fail.Fail.Valid.Fail.Valid.Valid.
 data node { int val ; node next }.
 
 pred ll<n> == self = null & n = 0

@@ -87,6 +87,7 @@ print residue.
 
 //(14)
 checkentail t::thrd<# a=1 --> x::cell(0.5)<1> * x::cell(0.5)<1> & true #> |- t::thrd<# a=1 --> x::cell(0.5)<1> & true #>.
+// Valid
 print residue.
 //VALID. SPLIT
 //TODO: may want to normalize resources

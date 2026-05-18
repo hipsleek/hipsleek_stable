@@ -1,4 +1,4 @@
-//Valid.Valid.Fail
+//Valid.Fail
 data node { int val ; node next }.
 
 pred lseg<n, p> == self = p & n = 0

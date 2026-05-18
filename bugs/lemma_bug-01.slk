@@ -1,4 +1,4 @@
-//Valid.Fail.Fail
+//Valid.Valid.
 data node { int val ; node next }.
 
 

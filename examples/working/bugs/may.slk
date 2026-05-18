@@ -9,6 +9,7 @@ data node {
 //Valid.Fail.Fail.Valid.Valid.Valid.
 
 checkentail true |- false.
+// Fail.
 print residue.
 
 

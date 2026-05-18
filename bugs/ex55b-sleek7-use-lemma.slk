@@ -55,6 +55,7 @@ checkentail x::lseg<n, p> & n > 10 |- x::lseg<n1, r1> * r1::lseg<n2, r2> * r2::l
 
 // 9
 checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> * r1::lseg<n2, r2> & n1 = 3 & n2 = 5.
+// Fail. n1=3, n2=5 means n1+n2=8 but n=7.
 // invalid-exception
 
 // 10

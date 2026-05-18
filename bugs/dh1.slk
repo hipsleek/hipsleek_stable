@@ -22,10 +22,9 @@ checkentail  x::node<m,n,#,a,a> * x::node<#,#,c,#,#>
   |- x::node<m1,#,d,e,f> & e=f.
 print residue.
 
-checkentail  x::node<#,f,#,#,#> * y::node<a,#,#,#,#> 
+checkentail  x::node<#,f,#,#,#> * y::node<a,#,#,#,#>
   |- x!=y.
-//above should fail but proven as valid
-// BAGA needs to be refined
+//above (x!=y) incorrectly proven by solver; BAGA needs to be refined
 
 checkentail  x::node<f,#,#,#,#> * x::node<a,#,#,#,#> 
   |- false.

@@ -51,6 +51,12 @@ EXCLUDE_DIRS = [
     "examples/fracperm",              # requires -perm fperm; float arithmetic unsupported in default mode
     "examples/working/sleek/fracperm", # same reason
     "examples/bperm",                 # requires -perm bperm; default mode does not support bounded perms
+    "examples/working/sleek/veribsync", # requires -perm bperm; bounded-permission tests
+    "bugs/vperm.slk",                 # requires -perm vperm; variable-permission tests
+    "baga/t/label.slk",               # label constraints ["n":...] require BAGA mode; ignored in default mode
+    "baga/t/label-dll.slk",           # same reason
+    "bugs/label-dll.slk",             # same reason
+    "examples/working/sleek/label-dll.slk", # same reason
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -9,23 +9,24 @@ lemma self::lseg<n, p> & n = a + b & a,b >=0 -> self::lseg<a, r> * r::lseg<b, p>
 
 
 checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> & n1 > 3.
+// valid
 //print residue.
-//valid 
 
 checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> & n1 = 3.
+// valid
 //print residue.
-//valid 
 
 checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> & n1 > 8.
+// Fail. n1>8 impossible when n=7
 //print residue.
-//valid 
 
-checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> * r1::lseg<n1, r2> 
+checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> * r1::lseg<n1, r2>
 & n1 > 1.
+// valid
 //print residue.
-//valid 
 
 checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> * r1::lseg<n1, r2> * r2::lseg<n1, r3> & n1 > 1.
+// Fail. 3*n1=7 has no integer solution with n1>1
 
 checkentail x::lseg<n, p> & n = 7 |- x::lseg<n1, r1> * r1::lseg<n1, r2> * r2::lseg<n1, r3> & n1 > 2.
 

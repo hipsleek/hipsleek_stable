@@ -18,7 +18,7 @@ checkentail x::lseg<n, p> & x=null |- p=null.
 
 
 checkentail x::lseg<n, y> * y::lseg<m,z> & n>0 & m>0 |- x!=y.
-// fail but should be valid 
+// valid
 
 
 pred ll<n> == self = null & n = 0
@@ -30,7 +30,7 @@ checkentail x::ll<n> * y::ll<m> & n>0 |- x!=y.
 
 
 checkentail x::ll<n> * y::ll<m> & n>0 & m>0 |- x!=y.
-// fail but should be valid 
+// valid
 
 
 pred clist<n> == 
@@ -41,7 +41,7 @@ checkentail x::clist<n>  |- x!=null.
 // valid 
 
 checkentail x::clist<n>*y::clist<m>  |- x!=y.
-// fail but should be valid 
+// valid
 
 data node2 {
         int ele;
@@ -66,11 +66,11 @@ checkentail x::avl<m,_,_> * y::avl<n,_,_> & m>0 & n>0   |- x!=null & y!=null.
 
 
 checkentail x::avl<m,_,_> * y::avl<n,_,_> & m>0 & n>0   |- x!=y .
-// fail but should be valid 
+// valid
 
 
 checkentail x::node<_,_> * y::node<_,_>   |- x!=y .
-// fail but should be valid 
+// valid
 
 
 

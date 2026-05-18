@@ -6,9 +6,8 @@ pred lseg<n, p> == self = p & n = 0
          inv n >= 0.
 
 checkentail x::node<_,_> * x::lseg<n, p> |- n=0.
-// fail but should be valid
-// bug (1) --pcp shows that pruning did not happen
-// bug (2) false not detected
+// valid
+// note: --pcp shows pruning behaviour; aliased node forces n=0
 /*
 checkentail x::node<_,_> * x::lseg<n, p> & n=0 |- n=0.
 // OK

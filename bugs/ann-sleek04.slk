@@ -142,7 +142,7 @@ checkentail x::node<_@v> & v=@M|-  x::node<_@M>.
 //checkentail x::node<_@L>|-  x::node<_@w> & w=@M.
 //print residue.
 
-// 2 Fail
+// Test case 2: Fail
 // checkentail x::node<_@L>|- (exists w: x::node<_@w> & w=@M).
 // This entailment used to be valid regadless of the ann on the rhs. 
 // I changed it's behaviour so that it follows (more or less) the one
