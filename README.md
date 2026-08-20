@@ -125,10 +125,6 @@ pushes to `master` that touch `docs/**` publish to
 cd docs && mdbook serve
 ```
 
-## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## License
 
-MIT — see [LICENSE](LICENSE).
