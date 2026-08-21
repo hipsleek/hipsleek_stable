@@ -1,0 +1,29 @@
+# Test targets that are known to fail on master.
+#
+# scripts/local-ci.sh compares the set of failing targets from a full `dune test`
+# against this list:
+#
+#   * a failure NOT listed here  -> a new regression, the run fails
+#   * a listed target that PASSES -> it was fixed, remove the line (the run fails
+#                                    so that the list cannot silently rot)
+#
+# This file deliberately records reality instead of promoting the cram baselines,
+# so that these known divergences stay visible rather than being rewritten into
+# `run.t` as if they were the expected output.
+#
+# Recorded 2026-08-21 on a machine WITHOUT mona, redcsl and fixcalc. Tests needing
+# those provers are skipped by dune (see the bin-available guards in
+# dune-tests/*/dune), so an environment that HAS them may surface additional
+# failures that are not listed here.
+#
+# See the "dune test baseline" section of CLAUDE.md for the triage of each entry.
+api/sleekapi_tests.ml
+dune-tests/hip/heaps.t/run.t
+dune-tests/hip/merge.t/run.t
+dune-tests/hip/modular_examples-qsort-modular.t/run.t
+dune-tests/hip/modular_examples-selection-modular.t/run.t
+dune-tests/hip/qsort.t/run.t
+dune-tests/hip/rb.t/run.t
+dune-tests/hip/selection.t/run.t
+dune-tests/hip/trees.t/run.t
+dune-tests/sleek/data-holes.t/run.t

@@ -21,6 +21,96 @@ Changes are listed newest-first. Each entry records: what changed, why, and what
 
 ---
 
+### 2026-08-21 — Make CI enforce the build and test suite (`.github/workflows/`, `scripts/local-ci.sh`, `README.md`)
+
+**Context**: a suggestion reported that the repo had no CI building or running the
+tests, and that `scripts/local-ci.sh` could silently drift from the workflow it
+claimed to mirror. In this checkout `.github/workflows/test.yml` was still present
+and tracked (the deletion the report described is not in this repo's history), so
+the work was to harden the existing workflow rather than restore a deleted one.
+
+#### Change 1 — Workflow delegates build+test to `scripts/local-ci.sh`
+
+`test.yml`'s final step is now `opam exec -- ./scripts/local-ci.sh` instead of a
+bare `eval $(opam env); dune test`. The script is the single source of truth for
+the build+test steps, so the local and CI runs cannot diverge. `--deps` is
+deliberately not passed: the workflow installs opam dependencies in its own step.
+
+The script is mode `100755` in the index, so the workflow can execute it directly.
+
+#### Change 2 — Required vs. optional provers separated
+
+The old single `Install dependencies` step used `startGroup`/`endGroup` helpers and
+failed the job if any prover failed to build. Split into one step per prover (each
+step is already a collapsible group in the Actions UI):
+
+| Prover | Status | Rationale |
+|--------|--------|-----------|
+| Z3, Omega | required | needed by most of the test suite |
+| Mona, Fixcalc (+ Haskell setup) | `continue-on-error: true` | `dune-tests/*/dune` guards these with `%{bin-available:...}` and skips the affected tests with a warning |
+
+The Fixcalc build step is additionally gated on `steps.haskell.outcome == 'success'`
+so it is skipped rather than failing noisily when the Haskell setup did not run.
+
+#### Change 3 — Fast typecheck gate
+
+Added `opam exec -- dune build @check` immediately after the opam install, before
+the prover builds. A type error now fails in about a minute instead of after the
+full link plus the Mona/Fixcalc source builds.
+
+#### Change 4 — Deprecated action versions bumped
+
+| Action | Was | Now | Why |
+|--------|-----|-----|-----|
+| `actions/checkout` (both workflows) | `@v3` | `@v4` | v3 runs on Node 16, being deprecated |
+| `peaceiris/actions-gh-pages` (`docs.yml`) | `@v3` | `@v4` | same |
+
+`ocaml/setup-ocaml@v3`, `haskell-actions/setup@v2` and `cda-tum/setup-z3@v1` are
+already current and were left alone.
+
+**Verified locally**: `dune build @check` exits 0; `./scripts/local-ci.sh
+dune-tests/sleek/sleek2.t` exits 0 with `mona`/`redcsl`/`fixcalc` absent,
+confirming the optional-prover design is sound. Both workflow files parse as valid
+YAML and `sh -n scripts/local-ci.sh` is clean.
+
+#### Change 5 — Known-failure allowlist so the gate is meaningful today
+
+A full `dune test` on master exits 1 with 10 failing targets, all pre-existing and
+none caused by this entry (no source file was touched). An enforcing CI would
+therefore be red on its first run and on every PR after it.
+
+Rather than promote the stale cram baselines — which would rewrite known-bad output
+into `run.t` as if it were expected, burying the divergences — the failing targets
+are recorded in `scripts/known-test-failures.txt`, and a full `local-ci.sh` run
+compares the actual failing set against it:
+
+| Situation | Result |
+|-----------|--------|
+| Failing set matches the list | passes |
+| A target fails that is not listed | **fails** — a new regression |
+| A listed target now passes | **fails** — its line must be deleted from the list |
+
+Failing in both directions keeps the list from rotting: a fix is a one-line deletion,
+and the list stays an accurate to-do rather than drifting into fiction.
+
+Two safeguards in the comparison:
+
+- A restricted run (`local-ci.sh <target>`) skips the comparison entirely and defers
+  to dune, since the list describes a *full* run and every unrun target would
+  otherwise look "fixed".
+- If `dune test` exits non-zero but no `File "..."` lines can be parsed (build error,
+  crash), the run fails rather than silently passing an empty comparison.
+
+The list was recorded on a machine **without** mona, redcsl and fixcalc. Tests needing
+those are skipped by dune, so a CI runner that has them may surface additional
+failures; those should be triaged and appended rather than assumed spurious.
+
+**Not changed**: `test.yml` still declares `permissions: contents: write`, which a
+test job does not need — narrowing it to `contents: read` is a safe follow-up but
+was outside the scope of the report.
+
+---
+
 ### 2026-05-18 — Fix remaining parser false positives in group_2_comment_mismatch
 
 Seven annotation false positives were fixed across six files. All were caused by the WINDOW_AFTER=1 / WINDOW_BEFORE=4 parser proximity rules assigning comments to the wrong entail.
@@ -328,6 +418,51 @@ dune build
 | `examples/` | `bash run_examples.sh` | 33 pass, 68 fail, 37 groups (2026-05-13) |
 | Expected-output mismatches | `python3 check_expected.py` | 447 files checked; 156 total mismatches in 82 files (2026-05-14): 11 TIMEOUT, 92 comment-mismatch, 53 expect-mismatch |
 | Expected-output mismatches | `python3 check_expected.py` | 20 files with comment-mismatch remain (2026-05-18): all genuine behavioral issues (categories D/E/F/A/H) — fixed/ holds 72 resolved cases |
+| Cram + expect tests | `dune test` | **exits 1** — 10 failing targets (2026-08-21). See below. |
+
+### dune test baseline (2026-08-21)
+
+`dune test` exits 1. All cram baselines below were last written in `d217e83a8`
+(2024-11-28) and have not been promoted since. Because nothing enforced the suite,
+the two stabilisation commits below landed on master without their test fallout
+being noticed — which is exactly the gap the CI change in this file's newest entry
+closes.
+
+| Failing target | Symptom | Cause |
+|----------------|---------|-------|
+| `dune-tests/hip/rb.t` | `del`, `remove_min`: SUCCESS → FAIL | `998259fae` — **confirmed** |
+| `api/sleekapi_tests.ml` | stale `astsimp.ml#9340` → `#9396`; trailing-newline drift | `998259fae` — **confirmed** |
+| `dune-tests/hip/heaps.t` | `deletemax`, `deleteoneel`, `ripple`: SUCCESS → FAIL | unconfirmed, see below |
+| `dune-tests/hip/merge.t` | `split_func`: SUCCESS → FAIL | unconfirmed |
+| `dune-tests/hip/qsort.t` | `partition`, `qsort`: SUCCESS → FAIL | unconfirmed |
+| `dune-tests/hip/modular_examples-qsort-modular.t` | `partition`, `qsort`: SUCCESS → FAIL | unconfirmed |
+| `dune-tests/hip/selection.t` | `delete_min`: SUCCESS → FAIL | unconfirmed |
+| `dune-tests/hip/modular_examples-selection-modular.t` | `delete_min`: SUCCESS → FAIL | unconfirmed |
+| `dune-tests/hip/trees.t` | `delete`, `remove_min`: SUCCESS → FAIL | unconfirmed |
+| `dune-tests/sleek/data-holes.t` | Entail 3 Valid → Fail | unconfirmed |
+
+**Only two commits have touched `src/` since the baseline**: `998259fae` (astsimp.ml,
+ref field-access → explicit bind) and `a27679a29` (solver.ml, ConstAnn subtype check
+in `do_match_x`). So the cause of every failure above lies in one of these two.
+
+**What was actually measured**: temporarily reverting *only* the `src/astsimp.ml`
+hunk of `998259fae` and rebuilding made `rb.t` pass; the other seven hip targets and
+`data-holes.t` still failed. That confirms `998259fae` for `rb.t` and rules it out for
+the rest, leaving `a27679a29` as the only remaining candidate for the other eight.
+**That has not been verified** — the confirming run was interrupted, and the source
+tree was restored to HEAD without completing it.
+
+An earlier version of this entry attributed all eight hip failures to `998259fae` on
+the grounds that every failing file declares an `@R` parameter and passes a field
+access as an argument. That correlation held for all eight files but the measurement
+above disproved it for seven of them; the reasoning is recorded here only as a
+caution against trusting code-shape correlation without a revert test.
+
+These 10 targets are the contents of `scripts/known-test-failures.txt`. They are
+recorded, not promoted: `dune test --auto-promote` was deliberately **not** run, so
+`run.t` still states what the code used to do. Before promoting any of them, decide
+per target whether the new output is correct (promote) or a genuine regression
+(fix the source).
 
 **Running the mismatch checker**:
 ```bash

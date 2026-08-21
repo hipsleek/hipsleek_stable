@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
         uses: ocaml/setup-ocaml@v3
@@ -34,55 +34,66 @@ jobs:
           opam-pin: false
           opam-depext: false
 
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: "9.4.8"
-          cabal-version: "3.10.3.0"
+      - name: Install opam dependencies
+        run: opam install . --deps-only
+
+      # Fast gate: typecheck everything before paying for the full link and
+      # the external prover installs below.
+      - name: Typecheck
+        run: opam exec -- dune build @check
+
+      # --- Required provers -------------------------------------------------
+      # Z3 and Omega are needed by most of the test suite; if these fail the
+      # job should fail.
 
       - uses: cda-tum/setup-z3@v1
         with:
           version: 4.13.3
 
-      - name: Install dependencies
+      - name: Build Omega
         run: |
-          # https://github.com/coq-community/docker-coq-action/blob/master/timegroup.sh
-          startGroup() {
-            echo "::group::$1"
-          }
-          endGroup() {
-            echo "::endgroup::"
-          }
+          (cd omega_modified && make oc)
+          echo "$PWD/omega_modified/omega_calc/obj" >> "$GITHUB_PATH"
 
-          startGroup "opam dependencies"
-            opam install . --deps-only
-          endGroup
-          startGroup "omega"
-            (cd omega_modified && make oc)
-            echo $PWD/omega_modified/omega_calc/obj >> $GITHUB_PATH
-          endGroup
-          startGroup "mona"
-            tar -xvf mona-1.4-modif.tar.gz
-            cd mona-1.4
-            ./configure --prefix=$(pwd)
-            make install
-            cp mona_predicates.mona ..
-            cd -
-            echo $PWD/mona-1.4/bin >> $GITHUB_PATH
-          endGroup
-          startGroup "cabal dependencies"
-            cabal install --lib regex-compat old-time
-            cabal install happy
-          endGroup
-          startGroup "fixcalc"
-            git clone https://github.com/hipsleek/omega_stub.git
-            (cd omega_stub; make)
-            git clone https://github.com/hipsleek/fixcalc.git fixcalc_src
-            (cd fixcalc_src; make fixcalc)
-            echo $PWD/fixcalc_src >> $GITHUB_PATH
-          endGroup
+      # --- Optional provers -------------------------------------------------
+      # dune-tests skips the tests that need these (see the bin-available
+      # guards in dune-tests/*/dune), so a failure here must not fail the job.
 
-      - name: Run tests
+      - name: Build Mona (optional)
+        continue-on-error: true
         run: |
+          tar -xvf mona-1.4-modif.tar.gz
+          cd mona-1.4
+          ./configure --prefix="$(pwd)"
+          make install
+          cp mona_predicates.mona ..
+          cd -
+          echo "$PWD/mona-1.4/bin" >> "$GITHUB_PATH"
 
-          eval $(opam env)
-          dune test
+      - name: Set up Haskell for Fixcalc (optional)
+        id: haskell
+        continue-on-error: true
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.4.8"
+          cabal-version: "3.10.3.0"
+
+      - name: Build Fixcalc (optional)
+        if: steps.haskell.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cabal install --lib regex-compat old-time
+          cabal install happy
+          git clone https://github.com/hipsleek/omega_stub.git
+          (cd omega_stub; make)
+          git clone https://github.com/hipsleek/fixcalc.git fixcalc_src
+          (cd fixcalc_src; make fixcalc)
+          echo "$PWD/fixcalc_src" >> "$GITHUB_PATH"
+
+      # --- Build and test ---------------------------------------------------
+      # Delegated to scripts/local-ci.sh so that the local and CI runs cannot
+      # drift apart. opam dependencies are already installed above, so --deps
+      # is deliberately not passed.
+
+      - name: Build and run tests
+        run: opam exec -- ./scripts/local-ci.sh

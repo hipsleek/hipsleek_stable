@@ -99,13 +99,33 @@ dune test dune-tests/hip/ll.t                # a single test directory
 dune test --auto-promote                     # accept new output (review the diff!)
 ```
 
-`scripts/local-ci.sh` runs the same build and test steps as the GitHub Actions
-workflow ([`.github/workflows/test.yml`](.github/workflows/test.yml)) and reports
-which optional provers are missing:
+`scripts/local-ci.sh` runs the build and test steps and reports which optional
+provers are missing. The GitHub Actions workflow
+([`.github/workflows/test.yml`](.github/workflows/test.yml)) invokes this same
+script, so a local run and a CI run cannot drift apart:
 
 ```sh
-./scripts/local-ci.sh
+./scripts/local-ci.sh                          # full run, gated (see below)
+./scripts/local-ci.sh dune-tests/hip/ll.t      # one target, dune's verdict only
 ```
+
+#### Known test failures
+
+`dune test` does not currently pass on master. The stale baselines have **not**
+been promoted — that would rewrite known-bad output into `run.t` as if it were
+expected. Instead the failing targets are recorded in
+[`scripts/known-test-failures.txt`](scripts/known-test-failures.txt), and a full
+`local-ci.sh` run compares against it:
+
+| Situation | Result |
+|---|---|
+| Failing set matches the list | passes |
+| A target fails that is not listed | **fails** — a new regression |
+| A listed target passes | **fails** — delete its line from the list |
+
+So the gate blocks new regressions today, while the existing divergences stay
+visible as a to-do list rather than being buried. Each entry is triaged in
+[`CLAUDE.md`](CLAUDE.md) under "dune test baseline".
 
 ### Code formatting
 
