@@ -1257,7 +1257,7 @@ let get_mona_predicates_file () : string =
         (* let () = write_to_mona_predicates_file mona_pred_file in *)
         (* let () = print_string (" done!\n") in *)
         (* mona_pred_file *)
-        exit(0)
+        exit 1
     end
 
 let prelude () =

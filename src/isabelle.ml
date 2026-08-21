@@ -340,7 +340,7 @@ let set_process proc =
 let rec check_image_existence image_lst =
   match image_lst with
   | [] -> let () = print_string ("\n WARNING: Isabelle's Image was not found. Aborting execution ...\n") in 
-    exit(0)
+    exit 1
   | img::imgs ->   
     if Sys.file_exists img then 
       isabelle_image := img

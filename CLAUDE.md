@@ -21,6 +21,64 @@ Changes are listed newest-first. Each entry records: what changed, why, and what
 
 ---
 
+### 2026-08-21 — Fatal error paths now exit non-zero (`src/mona.ml`, `src/tpdispatcher.ml`, `src/isabelle.ml`, `src/rtc_algorithm.ml`)
+
+**Context**: several fatal paths printed a warning and then called `exit(0)`, so a
+crashed run was indistinguishable from a successful one to any shell script, cram
+test or CI step that checks the exit status. Reported alongside the CI work in the
+entry below — a gate is worthless if the thing it gates reports success on failure.
+
+**Change**: five `exit(0)`/`exit 0` calls changed to `exit 1`. One line each.
+
+| Location | Reached when |
+|----------|--------------|
+| `src/tpdispatcher.ml:373` | `check_prover_existence`: selected prover binary not on PATH |
+| `src/mona.ml:1260` | `mona_predicates.mona` missing from both cwd and `/usr/local/lib/` |
+| `src/isabelle.ml:343` | no Isabelle image found |
+| `src/rtc_algorithm.ml:59`, `:253` | `get_var`: edge missing from the graph (broken internal invariant) |
+
+**Demonstration of the old behaviour** (this machine has z3, does not have mona):
+
+```sh
+$ sleek -tp mona sleek2.slk
+WARNING : Command for starting the prover () not found
+$ echo $?
+0
+```
+
+Zero entailments were checked, yet a wrapping `if sleek ...; then echo pass; fi`
+printed `pass`. The same file under the default prover reports 8 entailments, 4 of
+them failing.
+
+**Blast radius — default runs are unaffected.** `check_prover_existence` only
+inspects the prover actually selected, and the default is Z3
+(`src/tpdispatcher.ml:42`; the `OM` = omega+mona default on line 41 is commented
+out). Measured before and after, with z3 present and mona absent:
+
+| Command | Before | After |
+|---------|--------|-------|
+| `sleek sleek2.slk` (default Z3) | exit 0, 8 entailments | **unchanged** |
+| `sleek -tp om sleek2.slk` | exit 0, 0 entailments | exit 1 |
+| `sleek -tp mona sleek2.slk` | exit 0, 0 entailments | exit 1 |
+
+The two changed rows were never doing any work; they now say so instead of claiming
+success. Nothing in the repo invokes them: `dune-tests/`, `scripts/`, `*.sh` and
+`*.py` contain zero uses of `-tp mona`, `-tp om`, `-tp isabelle` or `-tp minisat`.
+`docs/src/install.md:68-69` does — it is the post-install check users are told to
+run, and it is precisely the case that used to fail silently.
+
+**Not done**: the report also suggested a single `fatal_error` helper (print +
+non-zero exit) to stop this recurring. Not introduced here; the five sites were
+changed directly.
+
+**Note on the grep in the report**: `grep -rn 'exit(0)\|exit 0' --include='*.ml' src/ common/`
+returns 27 hits, but most are legitimate — `End_of_file -> exit 0` at end of input
+(`pretty_ss.ml`, `slk2smt.ml`), the `if Unix.fork() <> 0 then exit 0` daemonisation
+idiom (`net.ml:259`), and normal GUI session ends (`other/prove.ml`,
+`other/maingui.ml`). Only the five sites above are defects; do not batch-replace.
+
+---
+
 ### 2026-08-21 — Make CI enforce the build and test suite (`.github/workflows/`, `scripts/local-ci.sh`, `README.md`)
 
 **Context**: a suggestion reported that the repo had no CI building or running the
@@ -92,6 +150,16 @@ compares the actual failing set against it:
 
 Failing in both directions keeps the list from rotting: a fix is a one-line deletion,
 and the list stays an accurate to-do rather than drifting into fiction.
+
+The failing set is extracted with awk, not a plain grep of the `File "..."` header:
+dune prints that same header for **compiler warnings**, so matching the header alone
+reports every warned-about `.ml` file as a failing target. A failure header is always
+followed immediately by a `diff --git` line; a warning is followed by a source
+excerpt. The extraction therefore emits a path only when the next line starts with
+`diff`. This was found the hard way — the first source change after the gate went in
+triggered a rebuild, the rebuild emitted warnings, and the gate reported
+`api/sleekapi.ml` as a new regression. It was not; the earlier runs had simply been
+served from the build cache and printed no warnings.
 
 Two safeguards in the comparison:
 
@@ -333,6 +401,8 @@ Document bugs, regressions, or flaky behaviour found during stabilisation here.
 | 9  | `examples/resource/inst/node.slk` | `mn::RS_mark<4> |- mn::RS_mark<h>` — solver freely instantiates `h`, accepting entail that should fail | **Open** |
 | 10 | `examples/working/sleek/imm-field/sleek04.slk` (entail 6) | `v=@A |- (exists w: ... w=@L)` returns Valid — solver incorrectly allows annotation variable to escape constraint | **Open** |
 | 11 | `bugs/improve-sleek9.slk` (entail 1) | `lseg<n-1,t> * t::node<_,null> & x!=null |- ll_tail<t,n>` — backwards lemma application fails despite forward lemma present | **Open** |
+| 12 | `src/mona.ml`, `src/tpdispatcher.ml`, `src/isabelle.ml`, `src/rtc_algorithm.ml` | Five fatal error paths called `exit(0)`, so a crashed run looked like a pass to any exit-status check | **Fixed** 2026-08-21 |
+| 13 | `.github/workflows/` | No CI enforced `dune build`/`dune test`; `scripts/local-ci.sh` could drift from the workflow it claimed to mirror | **Fixed** 2026-08-21 |
 
 ### 2026-05-13 — Baseline run of `examples/` test suite
 

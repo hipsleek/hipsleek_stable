@@ -79,9 +79,16 @@ cat "$test_log"
 
 group "known failures"
 
-# dune reports each failing cram test and expect test as:
+# dune reports each failing cram test and expect test as a File header followed
+# immediately by the diff:
 #   File "<path>", line 1, characters 0-0:
-sed -n 's/^File "\([^"]*\)", line .*/\1/p' "$test_log" | sort -u > "$actual_f"
+#   diff --git a/... b/...
+# Compiler warnings use the same File header but are followed by a source excerpt,
+# so the "diff" line is what distinguishes a failure from a warning. Matching on
+# the header alone reports every warned-about .ml file as a failing target.
+awk '\
+  prev ~ /^File "/ && /^diff / { p = prev; sub(/^File "/, "", p); sub(/".*/, "", p); print p } \
+  { prev = $0 }' "$test_log" | sort -u > "$actual_f"
 if [ -f "$known_failures" ]; then
   grep -vE '^[[:space:]]*(#|$)' "$known_failures" | sort -u > "$expected_f"
 else

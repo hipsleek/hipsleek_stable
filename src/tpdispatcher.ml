@@ -370,7 +370,7 @@ let rec check_prover_existence prover_cmd_str =
         check_prover_existence rest
       else
         let () = print_string ("WARNING : Command for starting the prover (" ^ prover ^ ") not found\n") in
-        exit 0
+        exit 1
     else check_prover_existence rest
 
 let is_smtsolver_z3 tp_str=

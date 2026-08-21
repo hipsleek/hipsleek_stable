@@ -56,7 +56,7 @@ let max_of (x:int) (y:int)= if (x>y) then x else y
 
 let get_var v1 v2 graph=
   try let ed=Glabel.find_edge graph v1 v2 in !(Glabel.E.label ed)
-  with Not_found-> let _=print_endline_quiet ("get_var:NOT FOUND VAR!!!"^v1^" "^v2) in exit(0)
+  with Not_found-> let _=print_endline_quiet ("get_var:NOT FOUND VAR!!!"^v1^" "^v2) in exit 1
 
 class graphFindBCC =
   object (self)
@@ -250,7 +250,7 @@ class rTC=
 
     method get_var v1 v2 graph=
       try let ed=Glabel.find_edge graph v1 v2 in !(Glabel.E.label ed)
-      with Not_found-> let _=print_endline_quiet ("get_var:NOT FOUND VAR!!!"^v1^" "^v2) in exit(0)
+      with Not_found-> let _=print_endline_quiet ("get_var:NOT FOUND VAR!!!"^v1^" "^v2) in exit 1
 
     (*	method get_id gr_e v1 v2=*)
     method get_var_triangular v el gr_e=
