@@ -21,6 +21,47 @@ Changes are listed newest-first. Each entry records: what changed, why, and what
 
 ---
 
+### 2026-08-25 — Remove dead scratch module `src/test.ml` (issue 69)
+
+**Context**: issue 69 reported that `src/test.ml` is not a test module. It is 40 lines
+of type-syntax doodling — `type ('a,'b,'c) f`, `numb_i`, `let f ~x ~y = x - y`,
+`bump`, `let g x = x` — with a header reading `created 21-Feb-2006`. The name implies
+test coverage that does not exist. Every claim in the report checked out.
+
+**Change**:
+
+| File | Change |
+|------|--------|
+| `src/test.ml` | deleted (`git rm`) |
+| `src/dune:6` | `test` and `test_cilparser` removed from the cppo `per_module` list (149 → 147 entries) |
+| `src/dune:15` | stale comment `; run-oc new-mona test-oo` removed — it named modules deleted long ago |
+
+`test_cilparser` was already dangling: no `src/test_cilparser.ml` exists. The only file
+of that name is `bef_indent/test_cilparser.ml`, in a directory with no `dune` file, so
+it is not built. Per the issue 66 entry, `per_module` silently ignores names that match
+no module, so the stale entry had no effect — removing it is a no-op for the build.
+
+**Verified dead before removal**:
+
+- no `open Test` and no `Test.` reference in `src/`, `common/` or `api/` (the only
+  matches for the word are English prose in comments)
+- absent from `src/hipsleek.ml`, the library's module wrapper, so it was not reachable
+  from outside `hipsleek` either
+- nothing under `dune-tests/` refers to it
+
+**Verified after removal**: `dune build @check` exits 0 with zero `Error` lines, and a
+full `dune build` exits 0 with `hip.exe` and `sleek.exe` linking normally.
+
+**Correction to the report**: it states the name "confuses test discovery". No tooling
+was in fact confused — `src/dune` has no `(inline_tests)` stanza and nothing under
+`dune-tests/` points at that directory. The confusion was for human readers only. The
+conclusion is unaffected.
+
+**Not a Known Issues row**: that table records bugs, regressions and flaky behaviour.
+A dead scratch file is none of those, so no row was added.
+
+---
+
 ### 2026-08-25 — Repair corrupted macro definition in `xdebug.cppo` (issue 66)
 
 **Context**: issue 66 reported that `src/dune` and `common/dune` list ~150 module
