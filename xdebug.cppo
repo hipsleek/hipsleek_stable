@@ -100,7 +100,7 @@
 #define x_dinfo_zp Debug.dinfo_zprint
 #define x_winfo_pp Debug.winfo_pprint
 #define x_winfo_hp Debug.binfo_hprint
-cd inc#define x_winfo_zp Debug.binfo_zprint 
+#define x_winfo_zp Debug.binfo_zprint 
 #define x_ninfo_hp (fun pr s p -> ())
 #define x_ninfo_pp (fun s p -> ())
 #define x_add 

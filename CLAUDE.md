@@ -21,6 +21,80 @@ Changes are listed newest-first. Each entry records: what changed, why, and what
 
 ---
 
+### 2026-08-25 — Repair corrupted macro definition in `xdebug.cppo` (issue 66)
+
+**Context**: issue 66 reported that `src/dune` and `common/dune` list ~150 module
+names explicitly for `cppo -D TRACE` preprocessing, and proposed inverting the lists
+using a `default` catch-all entry in `per_module`. Investigating that claim turned up
+an unrelated real defect in `xdebug.cppo`; the reported problem itself did not
+reproduce, and the proposed fix is unsafe. Both findings are recorded below.
+
+#### Change — `xdebug.cppo:103`
+
+A stray shell command had been saved into the file, glued to the front of a `#define`:
+
+```diff
+-cd inc#define x_winfo_zp Debug.binfo_zprint
++#define x_winfo_zp Debug.binfo_zprint
+```
+
+cppo only treats a line as a directive when `#` is the first non-blank character. With
+`cd inc` in front, the line was not a `#define` at all — cppo copied it through as
+literal text. In the non-`TRACE` branch this meant (a) `x_winfo_zp` was never defined,
+and (b) the literal string `cd inc#define x_winfo_zp Debug.binfo_zprint` would be
+emitted into the generated OCaml source, a syntax error.
+
+**Latent, not active.** The line sits inside the `#else` (non-`TRACE`) branch, and the
+only cppo invocation in the repo passes `-D TRACE`:
+
+```
+$ grep -rhoE "run cppo [^)]*" --include=dune . | grep -v _build | sort -u
+run cppo -I . -D TRACE %{input-file}
+```
+
+so cppo skips that block entirely and no module's preprocessed output changes.
+
+**Verified**: macro expansion under `-D TRACE` is byte-identical before and after;
+without `-D TRACE`, `x_winfo_zp` now expands to `Debug.binfo_zprint` instead of
+emitting junk. `dune build @check` exits 0 with zero `Error` lines. The full
+`dune test` was not re-run: the change cannot affect a `-D TRACE` build.
+
+#### Not done — the `per_module` inversion proposed by the issue
+
+**`per_module` has no catch-all, and the proposed spelling fails silently.** Tested on
+dune 3.21:
+
+| Spelling | Result |
+|----------|--------|
+| `((action (run cppo ...)) default)` | **accepted with no error**; `default` is read as an ordinary module name, matches nothing, and preprocessing is applied to **no module at all** |
+| `((action (run cppo ...)) :standard)` | rejected: `":standard" is an invalid module name` |
+
+Adopting the suggestion would therefore have disabled cppo across all ~150 modules
+at once — the reported footgun, maximised. Do not re-apply it.
+
+**The reported footgun does not occur.** A module that wants the macros must open with
+`#include "xdebug.cppo"`, which is a syntax error in unpreprocessed OCaml; one that
+uses `x_binfo_pp` and friends without it gets an unbound identifier. Omitting a new
+file from the list fails the build loudly and immediately rather than silently
+dropping instrumentation:
+
+```
+File "lib/a.ml", line 1, characters 1-8:
+1 | #include "xdebug.cppo"
+Error: Syntax error
+```
+
+**Current drift is zero.** 8 modules in `common/` and 15 in `src/` are absent from the
+lists; none contains a cppo directive or uses an `x_*` macro (the sole match,
+`common/parser.ml:1998`, is commented out). The issue's remark about `others` is
+correct but cosmetic — `common/others.ml` is a real file, not a catch-all.
+
+**Left alone**: 29 entries in `src/dune`'s list have no matching `src/*.ml` (some name
+modules under `src/other/`, some duplicate `common/` modules). Harmless dead weight;
+not cleaned up here.
+
+---
+
 ### 2026-08-21 — Fatal error paths now exit non-zero (`src/mona.ml`, `src/tpdispatcher.ml`, `src/isabelle.ml`, `src/rtc_algorithm.ml`)
 
 **Context**: several fatal paths printed a warning and then called `exit(0)`, so a
@@ -403,6 +477,7 @@ Document bugs, regressions, or flaky behaviour found during stabilisation here.
 | 11 | `bugs/improve-sleek9.slk` (entail 1) | `lseg<n-1,t> * t::node<_,null> & x!=null |- ll_tail<t,n>` — backwards lemma application fails despite forward lemma present | **Open** |
 | 12 | `src/mona.ml`, `src/tpdispatcher.ml`, `src/isabelle.ml`, `src/rtc_algorithm.ml` | Five fatal error paths called `exit(0)`, so a crashed run looked like a pass to any exit-status check | **Fixed** 2026-08-21 |
 | 13 | `.github/workflows/` | No CI enforced `dune build`/`dune test`; `scripts/local-ci.sh` could drift from the workflow it claimed to mirror | **Fixed** 2026-08-21 |
+| 14 | `xdebug.cppo` | Line 103 `cd inc#define x_winfo_zp ...` — stray shell text broke the `#define`; non-`TRACE` builds lose the macro and emit junk into generated OCaml | **Fixed** 2026-08-25 |
 
 ### 2026-05-13 — Baseline run of `examples/` test suite
 
